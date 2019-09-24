@@ -2,6 +2,9 @@
 (require rackunit)
 
 
+;----------------------
+; creates a list of operations from Base 3 of given number (like bit flags)
+;----------------------
 
 (check-equal? (remainder 8 3) 2)
 
@@ -23,13 +26,37 @@
 (check-equal? (create-ops 6560 8) (list - - - - - - - -))
 
 ;----------------------------------------
+; Create all combinations of 8 operations (+ - none)
+;--------
 
 (define all-ops-patterns (map
  (lambda (ops-flags)
    (create-ops ops-flags 8)) (range 6560)))
 
 ;------------------------------------
+;append digit to left
+;----------------------
 
+(define (tens-places number)
+  (exact-ceiling (/ (log number ) (log 10))))
+
+(check-equal? (tens-places 6) 1)
+(check-equal? (tens-places 19) 2)
+(check-equal? (tens-places 104) 3)
+
+(define (append-left decimal digit)
+  (+ decimal (* digit (expt 10 (tens-places decimal)))))
+(check-equal? (append-left 2 8) 82)
+(check-equal? (append-left 12 8) 812)
+(check-equal? (append-left 123 8) 8123)
+
+;1 to 9 = 10
+;10 to 99 = 100
+;100 to 999 = 1000
+
+;-------------------------
+;-- function to test ops-patterns for 100
+;---------------------------
 (define (equal-one-hundred? ops-pattern)
   (equal-one-hundred-impl? (reverse ops-pattern) (list 8 7 6 5 4 3 2 1) 9 100))
 
@@ -42,7 +69,7 @@
         (cond
           [(eq? operation +)(equal-one-hundred-impl? (rest ops-pattern) (rest numbers) digit (- current-sum working-number))]
           [(eq? operation -)(equal-one-hundred-impl? (rest ops-pattern) (rest numbers) digit (+ current-sum working-number))]
-          [(eq? operation `none) (equal-one-hundred-impl? (rest ops-pattern) (rest numbers) (+ working-number (* digit 10)) current-sum)]))))
+          [(eq? operation `none) (equal-one-hundred-impl? (rest ops-pattern) (rest numbers) (append-left working-number digit) current-sum)]))))
 
 
 (check-equal? (equal-one-hundred? (list + + `none - + `none - +)) #t)
@@ -51,36 +78,33 @@
 ;--- Count solutions
 ;-----------------------------
 
-(count (lambda (ops-pattern)
-         (equal-one-hundred? ops-pattern))
-       all-ops-patterns)
+(string-append "Solutions found: " (number->string
+                                    (count (lambda (ops-pattern)
+                                             (equal-one-hundred? ops-pattern))
+                                           all-ops-patterns)))
 
 ;-------------------------
-;--- Pretty print
+;--- A pretty-print function for ops-patterns
 ;--------------------------------
 
-(define (pretty-print pattern)
-  (pretty-print-impl "1" pattern (list 2 3 4 5 6 7 8 9)))
+(define (pretty-print ops-pattern)
+  (pretty-print-impl "1" ops-pattern (list 2 3 4 5 6 7 8 9)))
 
-(define (pretty-print-impl string pattern numbers)
+(define (pretty-print-impl string ops-pattern numbers)
   (if (empty? numbers)
       (string-append string " = 100")
-      (let ([operation (first pattern)]
+      (let ([operation (first ops-pattern)]
             [number (number->string (first numbers))]) 
         (cond
-          [(eq? operation +) (pretty-print-impl (string-append string " + " number) (rest pattern) (rest numbers))]
-          [(eq? operation -) (pretty-print-impl (string-append string " - " number) (rest pattern) (rest numbers))]
-          [(eq? operation `none) (pretty-print-impl (string-append string number) (rest pattern) (rest numbers))]))))
+          [(eq? operation +) (pretty-print-impl (string-append string " + " number) (rest ops-pattern) (rest numbers))]
+          [(eq? operation -) (pretty-print-impl (string-append string " - " number) (rest ops-pattern) (rest numbers))]
+          [(eq? operation `none) (pretty-print-impl (string-append string number) (rest ops-pattern) (rest numbers))]))))
 
-(check-equal? (pretty-print (create-ops 3112 8)) "1 + 2 + 34 - 5 + 67 - 8 + 9 = 100")
+(check-equal? (pretty-print (list + + `none - + `none - +)) "1 + 2 + 34 - 5 + 67 - 8 + 9 = 100")
 
 ;-------------------------------
 ;-- Finally, print all solutions
 ;-------------------------------
 
 (map pretty-print (filter equal-one-hundred? all-ops-patterns))
-(filter equal-one-hundred? all-ops-patterns)
-
-
-(equal-one-hundred? (list + + `none `none - `none + `none))
 
